@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>手机控制器 - 大模型操控手机</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- 左侧：手机屏幕 -->
+        <div class="left-panel">
+            <div class="panel-header">
+                <h2>手机屏幕</h2>
+                <button id="refreshBtn" class="btn btn-secondary">刷新屏幕</button>
+            </div>
+            <div class="screen-container">
+                <img id="screenshot" src="" alt="手机屏幕" class="screenshot">
+                <div id="loadingOverlay" class="loading-overlay">
+                    <div class="spinner"></div>
+                    <p>加载中...</p>
+                </div>
+            </div>
+            <div class="screen-info">
+                <span id="screenSize">分辨率: - x -</span>
+                <span id="connectionStatus" class="status disconnected">未连接</span>
+            </div>
+        </div>
+
+        <!-- 右侧：控制和执行流程 -->
+        <div class="right-panel">
+            <!-- 指令输入区 -->
+            <div class="control-section">
+                <div class="panel-header">
+                    <h2>任务指令</h2>
+                </div>
+                <div class="input-group">
+                    <textarea id="instructionInput" placeholder="输入要执行的任务指令，例如：打开设置应用并切换到深色模式" rows="3"></textarea>
+                    <div class="input-row">
+                        <input type="password" id="apiKeyInput" placeholder="输入 API Key (DashScope/Qwen)" class="api-input">
+                        <button id="executeBtn" class="btn btn-primary">执行任务</button>
+                        <button id="stopBtn" class="btn btn-danger" disabled>停止</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 执行流程区 -->
+            <div class="execution-section">
+                <div class="panel-header">
+                    <h2>执行流程</h2>
+                    <button id="clearHistoryBtn" class="btn btn-small">清空历史</button>
+                </div>
+                <div id="executionLog" class="execution-log">
+                    <div class="log-placeholder">
+                        <p>执行日志将在这里显示...</p>
+                        <p>输入指令并点击"执行任务"开始</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 手动控制区 -->
+            <div class="control-section">
+                <div class="panel-header">
+                    <h2>手动控制</h2>
+                </div>
+                <div class="manual-controls">
+                    <div class="control-group">
+                        <label>按键控制:</label>
+                        <div class="button-group">
+                            <button class="btn btn-control" onclick="sendKey('KEYCODE_BACK')">返回</button>
+                            <button class="btn btn-control" onclick="sendKey('KEYCODE_HOME')">主页</button>
+                            <button class="btn btn-control" onclick="sendKey('KEYCODE_ENTER')">确认</button>
+                        </div>
+                    </div>
+                    <div class="control-group">
+                        <label>文本输入:</label>
+                        <div class="input-row">
+                            <input type="text" id="manualTextInput" placeholder="输入文本" class="text-input">
+                            <button class="btn btn-control" onclick="sendText()">发送</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
