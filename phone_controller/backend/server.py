@@ -1,12 +1,16 @@
 """
-Main server for phone control application.
+Main server for phone control application using MAI-UI-8B model.
 """
 import os
+import sys
 import asyncio
 import logging
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 from contextlib import asynccontextmanager
+
+# Add src directory to path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../src"))
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.staticfiles import StaticFiles
@@ -15,7 +19,7 @@ from pydantic import BaseModel
 import uvicorn
 
 from adb_controller import ADBController
-from qwen_agent import QwenPhoneAgent
+from mai_naivigation_agent import MAIUINaivigationAgent
 
 
 # Configure logging
@@ -26,7 +30,6 @@ logger = logging.getLogger(__name__)
 # Request/Response models
 class ExecuteRequest(BaseModel):
     instruction: str
-    api_key: str
 
 
 class TapRequest(BaseModel):
@@ -38,7 +41,8 @@ class SwipeRequest(BaseModel):
     x1: int
     y1: int
     x2: int
-    y2:    int
+    y2: int
+    duration: int = 300
 
 
 class TextRequest(BaseModel):
@@ -53,7 +57,7 @@ class KeyRequest(BaseModel):
 class AppState:
     def __init__(self):
         self.adb: Optional[ADBController] = None
-        self.agent: Optional[QwenPhoneAgent] = None
+        self.agent: Optional[MAIUINaivigationAgent] = None
         self.execution_history: List[Dict[str, Any]] = []
         self.current_task: Optional[str] = None
         self.is_running = False
@@ -78,8 +82,22 @@ async def lifespan(app: FastAPI):
     try:
         app_state.adb = ADBController()
         logger.info(f"ADB initialized: {app_state.adb.screen_width}x{app_state.adb.screen_height}")
+
+        # Initialize MAI-UI Agent
+        app_state.agent = MAIUINaivigationAgent(
+            llm_base_url="http://10.184.60.127:8090/v1",
+            model_name="MAI-UI-8B",
+            runtime_conf={
+                "history_n": 1,  # 只保留最近1步历史，避免超出模型长度限制
+                "temperature": 0.0,
+                "top_k": -1,
+                "top_p": 1.0,
+                "max_tokens": 2048,
+            },
+        )
+        logger.info("MAI-UI Agent initialized successfully")
     except Exception as e:
-        logger.error(f"Failed to initialize ADB: {e}")
+        logger.error(f"Failed to initialize: {e}")
 
     yield
 
@@ -87,7 +105,7 @@ async def lifespan(app: FastAPI):
     logger.info("Shutting down...")
 
 
-app = FastAPI(title="Phone Controller", lifespan=lifespan)
+app = FastAPI(title="Phone Controller - MAI-UI", lifespan=lifespan)
 
 # Mount static files
 app.mount("/static", StaticFiles(directory="../frontend/static"), name="static")
@@ -152,7 +170,7 @@ async def swipe(request: SwipeRequest):
         raise HTTPException(status_code=400, detail="ADB not initialized")
 
     try:
-        app_state.adb.swipe(request.x1, request.y1, request.x2, request.y2)
+        app_state.adb.swipe(request.x1, request.y1, request.x2, request.y2, request.duration)
         return {
             "status": "success",
             "action": "swipe",
@@ -195,12 +213,13 @@ async def execute_task(request: ExecuteRequest):
     if not app_state.adb:
         raise HTTPException(status_code=400, detail="ADB not initialized")
 
+    if not app_state.agent:
+        raise HTTPException(status_code=400, detail="Agent not initialized")
+
     if app_state.is_running:
         raise HTTPException(status_code=400, detail="Another task is already running")
 
     try:
-        # Initialize agent
-        app_state.agent = QwenPhoneAgent(api_key=request.api_key)
         app_state.reset()
         app_state.current_task = request.instruction
         app_state.is_running = True
@@ -225,18 +244,14 @@ async def run_task(instruction: str):
             # Capture screen
             screenshot = app_state.adb.capture_screen_to_pil()
 
-            # Get prediction
-            thinking, action = app_state.agent.predict(
-                instruction=instruction,
-                screenshot=screenshot,
-                screen_width=app_state.adb.screen_width,
-                screen_height=app_state.adb.screen_height,
-            )
+            # Get prediction from MAI-UI agent
+            obs = {"screenshot": screenshot}
+            prediction_text, action = app_state.agent.predict(instruction, obs)
 
             # Record step
             step = {
                 "step": step_count + 1,
-                "thinking": thinking,
+                "prediction": prediction_text,
                 "action": action,
                 "timestamp": datetime.now().isoformat(),
             }
@@ -246,13 +261,15 @@ async def run_task(instruction: str):
             await broadcast_update(step)
 
             # Check if we should terminate
-            if not action:
+            if not action or action.get("action") is None:
+                logger.info("Agent returned no action or error")
                 break
 
             action_type = action.get("action")
 
             if action_type == "terminate":
                 app_state.is_running = False
+                logger.info(f"Task terminated with status: {action.get('status')}")
                 break
 
             elif action_type == "wait":
@@ -267,6 +284,7 @@ async def run_task(instruction: str):
                     x = int(coord[0] * app_state.adb.screen_width)
                     y = int(coord[1] * app_state.adb.screen_height)
                     app_state.adb.tap(x, y)
+                    logger.info(f"Clicked at ({x}, {y})")
                     await asyncio.sleep(1)
 
             elif action_type == "long_press":
@@ -275,11 +293,13 @@ async def run_task(instruction: str):
                     x = int(coord[0] * app_state.adb.screen_width)
                     y = int(coord[1] * app_state.adb.screen_height)
                     app_state.adb.long_press(x, y)
+                    logger.info(f"Long pressed at ({x}, {y})")
                     await asyncio.sleep(1)
 
             elif action_type == "type":
                 text = action.get("text", "")
                 app_state.adb.input_text(text)
+                logger.info(f"Typed text: {text}")
                 await asyncio.sleep(0.5)
 
             elif action_type == "swipe":
@@ -300,6 +320,7 @@ async def run_task(instruction: str):
                     else:
                         x1, y1, x2, y2 = x, y, x, y - 500
                     app_state.adb.swipe(x1, y1, x2, y2)
+                    logger.info(f"Swiped {direction} from ({x1}, {y1}) to ({x2}, {y2})")
                     await asyncio.sleep(1)
 
             elif action_type == "drag":
@@ -311,22 +332,34 @@ async def run_task(instruction: str):
                     x2 = int(end_coord[0] * app_state.adb.screen_width)
                     y2 = int(end_coord[1] * app_state.adb.screen_height)
                     app_state.adb.swipe(x1, y1, x2, y2)
+                    logger.info(f"Dragged from ({x1}, {y1}) to ({x2}, {y2})")
                     await asyncio.sleep(1)
 
             elif action_type == "system_button":
                 button = action.get("button", "")
-                if button == "back":
-                    app_state.adb.press_key("KEYCODE_BACK")
-                elif button == "home":
-                    app_state.adb.press_key("KEYCODE_HOME")
-                elif button == "enter":
-                    app_state.adb.press_key("KEYCODE_ENTER")
+                key_map = {
+                    "back": "KEYCODE_BACK",
+                    "home": "KEYCODE_HOME",
+                    "enter": "KEYCODE_ENTER",
+                    "menu": "KEYCODE_MENU",
+                }
+                if button in key_map:
+                    app_state.adb.press_key(key_map[button])
+                    logger.info(f"Pressed button: {button}")
+                    await asyncio.sleep(1)
+
+            elif action_type == "open":
+                app_name = action.get("text", "")
+                logger.info(f"Request to open app: {app_name}")
+                # Note: Opening apps by name requires additional implementation
                 await asyncio.sleep(1)
 
             step_count += 1
 
     except Exception as e:
         logger.error(f"Error running task: {e}")
+        import traceback
+        traceback.print_exc()
         step = {
             "step": step_count + 1,
             "error": str(e),
@@ -341,12 +374,11 @@ async def run_task(instruction: str):
 
 async def broadcast_update(message: Dict[str, Any]):
     """Broadcast update to all websocket clients."""
-    import json
     for client in app_state.websocket_clients:
         try:
             await client.send_json(message)
-        except:
-            pass
+        except Exception as e:
+            logger.error(f"Error broadcasting to client: {e}")
 
 
 @app.websocket("/ws")
@@ -384,4 +416,4 @@ async def reset_state():
 
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8090)
+    uvicorn.run(app, host="0.0.0.0", port=8080)

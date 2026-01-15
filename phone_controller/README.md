@@ -1,12 +1,12 @@
-# 手机控制器 - 大模型操控手机
+# 手机控制器 - MAI-UI 大模型操控手机
 
-基于大模型的手机自动化控制系统，支持通过自然语言指令控制 Android 设备。
+基于 MAI-UI-8B 大模型的手机自动化控制系统，支持通过自然语言指令控制 Android 设备。
 
 ## 功能特性
 
 - 实时显示手机屏幕
 - 支持自然语言指令控制
-- 集成 Qwen 大模型（通义千问）
+- 集成 MAI-UI-8B 大模型
 - 实时显示执行流程
 - 支持手动控制（点击、滑动、输入文本等）
 
@@ -15,7 +15,7 @@
 - Python 3.8+
 - Android 设备（已开启 USB 调试）
 - ADB 工具已安装
-- DashScope API Key（通义千问）
+- MAI-UI-8B 模型服务（部署在 10.184.60.127:8090）
 
 ## 安装步骤
 
@@ -40,9 +40,14 @@ pip install -r requirements.txt
 adb devices
 ```
 
-### 3. 获取 API Key
+### 3. 启动 MAI-UI-8B 模型服务
 
-访问 [阿里云百炼平台](https://bailian.console.aliyun.com/) 获取 DashScope API Key。
+确保 MAI-UI-8B 模型已部署在 `http://10.184.60.127:8090`。
+
+如需修改模型服务地址，请编辑 `backend/server.py` 第 88 行：
+```python
+llm_base_url="http://your-model-server:port/v1",
+```
 
 ## 使用方法
 
@@ -53,21 +58,25 @@ cd backend
 python server.py
 ```
 
-服务器将在 `http://0.0.0.0:8090` 启动。
+或者使用 Windows 快捷脚本：
+```bash
+start.bat
+```
+
+服务器将在 `http://0.0.0.0:8080` 启动。
 
 ### 访问界面
 
 在浏览器中打开：
-- 本地：`http://localhost:8090`
-- 远程：`http://10.184.60.127:8090`
+- 本地：`http://localhost:8080`
+- 远程：`http://your-server-ip:8080`
 
 ### 操作说明
 
-1. **输入 API Key**：在右侧输入框中填入 DashScope API Key
-2. **输入任务指令**：例如 "打开设置应用并切换到深色模式"
-3. **点击执行**：点击"执行任务"按钮开始自动化操作
-4. **查看执行流程**：在右侧查看实时执行日志
-5. **手动控制**：可以使用手动控制区进行按键控制和文本输入
+1. **输入任务指令**：例如 "open the settings and turn on the wifi"
+2. **点击执行**：点击"执行任务"按钮开始自动化操作
+3. **查看执行流程**：在右侧查看实时执行日志
+4. **手动控制**：可以使用手动控制区进行按键控制和文本输入
 
 ### 手动控制
 
@@ -75,14 +84,21 @@ python server.py
 - **按键控制**：返回、主页、确认按钮
 - **文本输入**：输入文本并点击发送
 
+### 示例指令
+
+```
+open the settings and turn on the wifi
+open the camera and take a photo
+open chrome and search for "python"
+```
+
 ## 项目结构
 
 ```
 phone_controller/
 ├── backend/
 │   ├── server.py           # FastAPI 服务器
-│   ├── adb_controller.py   # ADB 控制器
-│   └── qwen_agent.py       # Qwen 大模型代理
+│   └── adb_controller.py   # ADB 控制器
 ├── frontend/
 │   ├── templates/
 │   │   └── index.html      # 主页面
@@ -91,22 +107,49 @@ phone_controller/
 │       │   └── style.css   # 样式文件
 │       └── js/
 │           └── app.js      # 前端逻辑
-└── requirements.txt        # Python 依赖
+├── requirements.txt        # Python 依赖
+├── start.bat              # Windows 启动脚本
+├── README.md             # 详细文档
+└── QUICKSTART.md         # 快速启动指南
 ```
 
 ## 技术栈
 
 - **后端**：FastAPI + WebSocket
 - **前端**：原生 HTML/CSS/JavaScript
-- **大模型**：Qwen VL（通义千问视觉模型）
+- **大模型**：MAI-UI-8B（移动 UI 理解模型）
 - **设备控制**：ADB
+
+## MAI-UI 模型说明
+
+本项目使用 MAI-UI-8B 模型，这是专门为移动设备 UI 理解和操作设计的视觉语言模型。
+
+模型配置：
+- 模型名称：MAI-UI-8B
+- 服务地址：http://10.184.60.127:8090/v1
+- Temperature：0.0（确定性输出）
+- 历史步数：3（保持最近 3 步的上下文）
+
+## 支持的操作
+
+- `click` - 点击屏幕
+- `long_press` - 长按
+- `type` - 输入文本
+- `swipe` - 滑动（上下左右）
+- `drag` - 拖拽
+- `system_button` - 系统按键（返回、主页等）
+- `open` - 打开应用
+- `wait` - 等待
+- `answer` - 回答用户
+- `terminate` - 结束任务
 
 ## 注意事项
 
 1. 确保 Android 设备已连接并授权 USB 调试
-2. API Key 需要有效且有足够额度
+2. 确保 MAI-UI-8B 模型服务正在运行
 3. 首次使用可能需要等待模型加载
 4. 执行过程中请勿手动操作手机
+5. 建议使用英文指令，模型对英文理解更好
 
 ## 常见问题
 
@@ -117,14 +160,19 @@ phone_controller/
 - 运行 `adb devices` 检查设备列表
 
 ### 模型调用失败
-- 检查 API Key 是否正确
-- 检查网络连接
-- 检查 API 额度是否充足
+- 检查模型服务是否运行
+- 检查服务地址配置是否正确
+- 查看控制台错误日志
 
 ### 屏幕无法刷新
 - 检查 ADB 连接状态
 - 尝试重启服务器
 - 检查设备是否处于唤醒状态
+
+## 相关链接
+
+- [MAI-UI 项目](https://github.com/alibaba/MAI-UI)
+- [ADB 文档](https://developer.android.com/studio/command-line/adb)
 
 ## License
 

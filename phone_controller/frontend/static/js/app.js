@@ -103,15 +103,9 @@ async function refreshScreen() {
 // 执行任务
 async function executeTask() {
     const instruction = document.getElementById('instructionInput').value.trim();
-    const apiKey = document.getElementById('apiKeyInput').value.trim();
 
     if (!instruction) {
         alert('请输入任务指令');
-        return;
-    }
-
-    if (!apiKey) {
-        alert('请输入 API Key');
         return;
     }
 
@@ -141,7 +135,6 @@ async function executeTask() {
             },
             body: JSON.stringify({
                 instruction: instruction,
-                api_key: apiKey,
             }),
         });
 
@@ -229,12 +222,12 @@ function handleWebSocketMessage(data) {
         });
         isExecuting = false;
         updateExecuteButtons(false);
-    } else if (data.action) {
+    } else if (data.action && data.action.action !== undefined) {
         // 显示执行步骤
         addLogEntry({
             type: 'step',
             step: data.step,
-            thinking: data.thinking,
+            prediction: data.prediction,
             action: data.action,
             timestamp: data.timestamp
         });
@@ -278,7 +271,7 @@ function addLogEntry(data) {
     if (data.type === 'step') {
         entry.innerHTML = `
             <div class="log-step">步骤 ${data.step}</div>
-            ${data.thinking ? `<div class="log-thinking">${escapeHtml(data.thinking)}</div>` : ''}
+            ${data.prediction ? `<div class="log-thinking">${escapeHtml(data.prediction)}</div>` : ''}
             ${data.action ? `<div class="log-action">${escapeHtml(JSON.stringify(data.action, null, 2))}</div>` : ''}
             <div class="log-time">${formatTime(data.timestamp)}</div>
         `;
