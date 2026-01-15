@@ -7,9 +7,12 @@
     <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
+    <!-- 顶部通知容器 -->
+    <div id="toastContainer" class="toast-container"></div>
+
     <div class="container">
         <!-- 左侧：手机屏幕 -->
-        <div class="left-panel">
+        <div class="screen-panel">
             <div class="panel-header">
                 <h2>手机屏幕</h2>
                 <button id="refreshBtn" class="btn btn-secondary">刷新屏幕</button>
@@ -25,10 +28,35 @@
                 <span id="screenSize">分辨率: - x -</span>
                 <span id="connectionStatus" class="status disconnected">未连接</span>
             </div>
+
+            <!-- 快速控制区 -->
+            <div class="quick-controls">
+                <div class="panel-header">
+                    <h3>快速控制</h3>
+                </div>
+                <div class="quick-control-buttons">
+                    <button class="btn btn-control" onclick="sendKey('KEYCODE_BACK')" title="返回键">
+                        <span class="icon">◀</span>
+                        <span class="label">返回</span>
+                    </button>
+                    <button class="btn btn-control" onclick="sendKey('KEYCODE_HOME')" title="主页键">
+                        <span class="icon">⌂</span>
+                        <span class="label">主页</span>
+                    </button>
+                    <button class="btn btn-control" onclick="sendKey('KEYCODE_APP_SWITCH')" title="最近任务">
+                        <span class="icon">❐</span>
+                        <span class="label">任务</span>
+                    </button>
+                    <button class="btn btn-control" onclick="sendKey('KEYCODE_MENU')" title="菜单键">
+                        <span class="icon">☰</span>
+                        <span class="label">菜单</span>
+                    </button>
+                </div>
+            </div>
         </div>
 
-        <!-- 右侧：控制和执行流程 -->
-        <div class="right-panel">
+        <!-- 中间：任务控制和执行日志 -->
+        <div class="control-panel">
             <!-- 指令输入区 -->
             <div class="control-section">
                 <div class="panel-header">
@@ -63,14 +91,7 @@
                     <h2>手动控制</h2>
                 </div>
                 <div class="manual-controls">
-                    <div class="control-group">
-                        <label>按键控制:</label>
-                        <div class="button-group">
-                            <button class="btn btn-control" onclick="sendKey('KEYCODE_BACK')">返回</button>
-                            <button class="btn btn-control" onclick="sendKey('KEYCODE_HOME')">主页</button>
-                            <button class="btn btn-control" onclick="sendKey('KEYCODE_ENTER')">确认</button>
-                        </div>
-                    </div>
+                    <!-- 文本输入 -->
                     <div class="control-group">
                         <label>文本输入:</label>
                         <div class="input-row">
@@ -78,6 +99,40 @@
                             <button class="btn btn-control" onclick="sendText()">发送</button>
                         </div>
                     </div>
+
+                    <!-- 滑动控制 -->
+                    <div class="control-group">
+                        <label>滑动控制:</label>
+                        <div class="swipe-controls">
+                            <button class="btn btn-control btn-swipe" onclick="performSwipe('up')">↑ 上滑</button>
+                            <button class="btn btn-control btn-swipe" onclick="performSwipe('down')">↓ 下滑</button>
+                            <button class="btn btn-control btn-swipe" onclick="performSwipe('left')">← 左滑</button>
+                            <button class="btn btn-control btn-swipe" onclick="performSwipe('right')">→ 右滑</button>
+                        </div>
+                    </div>
+
+                    <!-- 其他按键 -->
+                    <div class="control-group">
+                        <label>其他按键:</label>
+                        <div class="button-group">
+                            <button class="btn btn-control" onclick="sendKey('KEYCODE_ENTER')">确认</button>
+                            <button class="btn btn-control" onclick="sendKey('KEYCODE_VOLUME_UP')">音量+</button>
+                            <button class="btn btn-control" onclick="sendKey('KEYCODE_VOLUME_DOWN')">音量-</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 右侧：历史任务列表 -->
+        <div class="history-sidebar">
+            <div class="panel-header">
+                <h2>历史任务</h2>
+                <button id="clearTaskHistoryBtn" class="btn btn-small">清空记录</button>
+            </div>
+            <div id="taskHistoryList" class="task-history-list">
+                <div class="history-placeholder">
+                    <p>暂无历史任务</p>
                 </div>
             </div>
         </div>

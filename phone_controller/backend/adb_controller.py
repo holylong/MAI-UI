@@ -127,7 +127,11 @@ class ADBController:
             x: X coordinate (pixels).
             y: Y coordinate (pixels).
         """
-        self._run_adb_command(f"shell input tap {x} {y}")
+        cmd = f"shell input tap {x} {y}"
+        print(f"[ADB] Executing: adb {cmd}")
+        result = self._run_adb_command(cmd)
+        if result:
+            print(f"[ADB] Command output: {result}")
 
     def swipe(self, x1: int, y1: int, x2: int, y2: int, duration: int = 300) -> None:
         """
@@ -147,9 +151,9 @@ class ADBController:
         Args:
             text: Text to input.
         """
-        # Escape spaces and special characters for ADB
-        # Using %s for space and quote the text
-        escaped_text = text.replace(' ', '%s').replace('&', '\\&')
+        # Use adb shell input text with proper escaping
+        # Convert spaces to %s and escape special characters
+        escaped_text = text.replace(' ', '%s').replace('&', '\\&').replace('(', '\\(').replace(')', '\\)').replace('<', '\\<').replace('>', '\\>').replace('|', '\\|').replace(';', '\\;')
         self._run_adb_command(f"shell input text {escaped_text}")
 
     def press_key(self, key_code: str) -> None:

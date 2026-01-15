@@ -31,7 +31,33 @@ def safe_pil_to_bytes(image: Union[Image.Image, bytes]) -> bytes:
     else:
         raise TypeError(f"Expected PIL Image or bytes, got {type(image)}")
 
-def pil_to_base64(image: Image.Image) -> str:
+def pil_to_base64(image: Image.Image, max_size: int = 1920) -> str:
+    """
+    Convert PIL Image to base64 string with optional resizing.
+
+    Args:
+        image: PIL Image to convert.
+        max_size: Maximum dimension (width/height) for the output image.
+                  If 0, no resizing is done. If image is larger, it will be
+                  resized while maintaining aspect ratio.
+
+    Returns:
+        Base64 encoded PNG string.
+    """
+    # Resize if image is too large to reduce token count for large screens (tablets)
+    if max_size > 0:
+        width, height = image.size
+        if width > max_size or height > max_size:
+            # Calculate new dimensions maintaining aspect ratio
+            if width > height:
+                new_width = max_size
+                new_height = int(height * (max_size / width))
+            else:
+                new_height = max_size
+                new_width = int(width * (max_size / height))
+            print(f"[Image Resize] Resizing from {width}x{height} to {new_width}x{new_height}")
+            image = image.resize((new_width, new_height), Image.LANCZOS)
+
     buffer = BytesIO()
     image.save(buffer, format="PNG")
     return base64.b64encode(buffer.getvalue()).decode("utf-8")

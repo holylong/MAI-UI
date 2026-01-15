@@ -82,8 +82,12 @@ async def lifespan(app: FastAPI):
     try:
         app_state.adb = ADBController()
         logger.info(f"ADB initialized: {app_state.adb.screen_width}x{app_state.adb.screen_height}")
+    except Exception as e:
+        logger.error(f"Failed to initialize ADB: {e}")
+        logger.warning("Application will start but ADB features will be unavailable")
 
-        # Initialize MAI-UI Agent
+    # Initialize MAI-UI Agent
+    try:
         app_state.agent = MAIUINaivigationAgent(
             llm_base_url="http://10.184.60.127:8090/v1",
             model_name="MAI-UI-8B",
@@ -97,7 +101,8 @@ async def lifespan(app: FastAPI):
         )
         logger.info("MAI-UI Agent initialized successfully")
     except Exception as e:
-        logger.error(f"Failed to initialize: {e}")
+        logger.error(f"Failed to initialize MAI-UI Agent: {e}")
+        logger.warning("Application will start but AI agent features will be unavailable")
 
     yield
 
@@ -266,6 +271,7 @@ async def run_task(instruction: str):
                 break
 
             action_type = action.get("action")
+            logger.info(f"[DEBUG] Action type: {action_type}, Full action: {action}")
 
             if action_type == "terminate":
                 app_state.is_running = False
@@ -273,19 +279,24 @@ async def run_task(instruction: str):
                 break
 
             elif action_type == "wait":
+                logger.info("[DEBUG] Executing: wait")
                 await asyncio.sleep(1)
 
             elif action_type == "answer":
-                logger.info(f"Agent answer: {action.get('text')}")
+                logger.info(f"[DEBUG] Executing: answer - {action.get('text')}")
 
             elif action_type == "click":
                 coord = action.get("coordinate", [])
+                logger.info(f"[DEBUG] Executing: click, raw coordinate: {coord}")
                 if len(coord) == 2:
                     x = int(coord[0] * app_state.adb.screen_width)
                     y = int(coord[1] * app_state.adb.screen_height)
+                    logger.info(f"[DEBUG] Screen size: {app_state.adb.screen_width}x{app_state.adb.screen_height}, Calculated pixels: ({x}, {y})")
                     app_state.adb.tap(x, y)
                     logger.info(f"Clicked at ({x}, {y})")
                     await asyncio.sleep(1)
+                else:
+                    logger.error(f"[ERROR] Invalid coordinate format: {coord}")
 
             elif action_type == "long_press":
                 coord = action.get("coordinate", [])
